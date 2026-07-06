@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>○○쌤의 자료실</title>
+
+<!-- ===================== Firebase SDK (compat 방식) ===================== -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+
+<style>
+  :root{
+    --bg:#fdf9f3; --card-bg:#fff; --primary:#ff9f5a; --primary-dark:#f07f3a;
+    --accent:#6fb98f; --text:#3a3a3a; --sub-text:#7a7a7a; --border:#f0e6d8;
+    --shadow:0 4px 14px rgba(0,0,0,0.07); --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background:var(--bg); color:var(--text); font-size:17px; line-height:1.6;}
+  h1,h2,h3{margin:0 0 8px;}
+  a{color:inherit;} button{font-family:inherit; cursor:pointer;}
+
+  header{background:linear-gradient(135deg,#ffb677,#ff9f5a); color:#fff; padding:26px 20px; text-align:center; position:relative;}
+  header h1{font-size:1.8rem;}
+  header p{margin:4px 0 0; opacity:.95;}
+  #adminLoginBtn{position:absolute; top:18px; right:18px; background:rgba(255,255,255,0.25); color:#fff;
+    border:1px solid rgba(255,255,255,0.6); padding:8px 14px; border-radius:999px; font-size:0.85rem; font-weight:600;}
+
+  nav{display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:16px;}
+  nav button{background:rgba(255,255,255,0.25); border:none; color:#fff; padding:10px 20px; border-radius:999px; font-weight:700;}
+  nav button.active, nav button:hover{background:#fff; color:var(--primary-dark);}
+
+  .toolbar{max-width:1100px; margin:20px auto 0; padding:0 16px; display:flex; flex-wrap:wrap; gap:10px;}
+  .toolbar input[type="text"]{flex:1 1 220px; padding:12px 16px; border:2px solid var(--border); border-radius:999px; font-size:1rem;}
+  .toolbar select{padding:10px 14px; border:2px solid var(--border); border-radius:999px; background:#fff; font-size:0.9rem;}
+
+  main{max-width:1100px; margin:0 auto; padding:20px 16px 60px;}
+  .page{display:none;} .page.active{display:block;}
+  .section-title{margin:24px 0 12px; font-size:1.25rem; border-left:6px solid var(--primary); padding-left:10px;}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:18px;}
+  .card{background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:18px; display:flex; flex-direction:column; gap:8px;}
+  .badges{display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  .badge{background:#fff2e2; color:var(--primary-dark); font-size:0.75rem; padding:3px 10px; border-radius:999px; font-weight:600;}
+  .badge.grade{background:#e7f3ff; color:#2f7fc1;}
+  .badge.featured{background:#fff3c4; color:#9a7d00;}
+  .badge.private{background:#eee; color:#888;}
+  .card h3{font-size:1.05rem;}
+  .card p.desc{color:var(--sub-text); font-size:0.92rem; flex:1;}
+  .tag-list{display:flex; gap:6px; flex-wrap:wrap;}
+  .tag{background:#eef7ee; color:#4c8a5c; font-size:0.72rem; padding:2px 8px; border-radius:999px;}
+  .btn-row{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
+  .btn{flex:1 1 auto; text-align:center; border:none; border-radius:10px; padding:9px; font-weight:700; font-size:0.85rem;}
+  .btn.primary{background:var(--primary); color:#fff;}
+  .btn.ghost{background:#f6f2ea; color:var(--text);}
+  .btn.danger{background:#fdeaea; color:#c0392b;}
+  .btn.disabled{background:#ddd; color:#888; pointer-events:none;}
+  .star-btn{background:none; border:none; font-size:1.3rem; color:#d8d0c2; margin-left:auto;}
+  .star-btn.active{color:#ffb400;}
+  .no-result{text-align:center; color:var(--sub-text); padding:40px 0;}
+  .admin-only{display:none;}
+
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#333; color:#fff;
+    padding:10px 20px; border-radius:999px; font-size:0.9rem; opacity:0; transition:opacity .3s; z-index:200; pointer-events:none;}
+  .toast.show{opacity:1;}
+
+  .modal-overlay{display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:300; align-items:center; justify-content:center; padding:16px;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:#fff; border-radius:var(--radius); padding:22px; max-width:480px; width:100%; max-height:88vh; overflow-y:auto;}
+  .modal-box h3{font-size:1.2rem; margin-bottom:10px;}
+  .modal-box label{display:block; font-size:0.85rem; font-weight:600; margin:10px 0 4px;}
+  .modal-box input[type="text"], .modal-box input[type="email"], .modal-box input[type="password"],
+  .modal-box select, .modal-box textarea{
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:0.95rem; font-family:inherit;
+  }
+  .checkbox-row{display:flex; align-items:center; gap:8px; margin-top:12px;}
+  .checkbox-row input{width:auto;}
+  .modal-actions{display:flex; gap:8px; margin-top:16px;}
+  .modal-actions button{flex:1; padding:11px; border:none; border-radius:10px; font-weight:700;}
+  .modal-actions .primary-btn{background:var(--primary); color:#fff;}
+  .modal-actions .cancel-btn{background:#eee; color:#555;}
+
+  footer{text-align:center; padding:20px; color:var(--sub-text); font-size:0.85rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <button id="adminLoginBtn" aria-label="관리자 로그인">관리자 로그인</button>
+  <h1>○○쌤의 자료실</h1>
+  <p>수업 자료, 학급 활동, 교육용 웹앱을 모아 둔 공간입니다.</p>
+  <nav id="mainNav" aria-label="주요 메뉴">
+    <button data-page="home" class="active">홈</button>
+    <button data-page="all">전체 자료</button>
+    <button data-page="favorites">즐겨찾기</button>
+  </nav>
+</header>
+
+<div class="toolbar">
+  <input type="text" id="searchInput" placeholder="제목, 설명, 태그로 검색" aria-label="자료 검색">
+  <select id="filterSubject" aria-label="과목 필터"><option value="">과목 전체</option></select>
+  <select id="filterGrade" aria-label="학년 필터"><option value="">학년 전체</option></select>
+  <select id="filterCategory" aria-label="자료 유형 필터">
+    <option value="">유형 전체</option>
+    <option value="수업자료">수업자료</option>
+    <option value="활동자료">활동자료</option>
+    <option value="행사자료">행사자료</option>
+    <option value="웹앱">웹앱</option>
+  </select>
+  <select id="filterTag" aria-label="태그 필터"><option value="">태그 전체</option></select>
+  <select id="sortSelect" aria-label="정렬 기준">
+    <option value="latest">최신순</option>
+    <option value="title">제목순</option>
+    <option value="featured">추천순</option>
+  </select>
+</div>
+
+<div style="max-width:1100px;margin:14px auto 0;padding:0 16px;">
+  <button class="btn primary admin-only" id="addResourceBtn" aria-label="새 자료 추가">＋ 자료 추가</button>
+</div>
+
+<main>
+  <section class="page active" id="page-home">
+    <h2 class="section-title">추천 자료</h2>
+    <div class="grid" id="featuredGrid"></div>
+    <h2 class="section-title">최근 추가 자료</h2>
+    <div class="grid" id="recentGrid"></div>
+  </section>
+  <section class="page" id="page-all">
+    <h2 class="section-title">전체 자료</h2>
+    <div class="grid" id="allGrid"></div>
+  </section>
+  <section class="page" id="page-favorites">
+    <h2 class="section-title">즐겨찾기한 자료</h2>
+    <div class="grid" id="favGrid"></div>
+  </section>
+</main>
+
+<!-- 관리자 로그인 모달 -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal-box">
+    <h3>관리자 로그인</h3>
+    <label for="loginEmail">이메일</label>
+    <input type="email" id="loginEmail" placeholder="admin@example.com">
+    <label for="loginPw">비밀번호</label>
+    <input type="password" id="loginPw" placeholder="비밀번호">
+    <div class="modal-actions">
+      <button class="cancel-btn" id="loginCancelBtn">취소</button>
+      <button class="primary-btn" id="loginConfirmBtn">로그인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 자료 추가/수정 모달 -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-box">
+    <h3 id="addModalTitle">새 자료 추가</h3>
+    <label for="f_category">유형</label>
+    <select id="f_category">
+      <option value="수업자료">수업자료</option>
+      <option value="활동자료">활동자료</option>
+      <option value="행사자료">행사자료</option>
+      <option value="웹앱">웹앱</option>
+    </select>
+    <label for="f_title">제목</label>
+    <input type="text" id="f_title" placeholder="예: 6학년 수학 분수 게임">
+    <label for="f_subject">과목 (없으면 비워두기)</label>
+    <input type="text" id="f_subject" placeholder="예: 수학">
+    <label for="f_grade">학년</label>
+    <input type="text" id="f_grade" placeholder="예: 6학년 / 전학년">
+    <label for="f_desc">설명</label>
+    <textarea id="f_desc" rows="2" placeholder="간단한 설명"></textarea>
+    <label for="f_tags">태그 (쉼표로 구분)</label>
+    <input type="text" id="f_tags" placeholder="예: 분수, 게임, 연산">
+    <label for="f_link">링크 (없으면 '준비 중'으로 표시)</label>
+    <input type="text" id="f_link" placeholder="https://...">
+    <div class="checkbox-row"><input type="checkbox" id="f_public" checked><label style="margin:0;" for="f_public">공개</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="f_featured"><label style="margin:0;" for="f_featured">추천 자료로 표시</label></div>
+    <div class="modal-actions">
+      <button class="cancel-btn" id="addCancelBtn">취소</button>
+      <button class="primary-btn" id="addConfirmBtn">추가하기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<footer>made by 박선생</footer>
+
+<script>
+/* =========================================================================
+   [0] Firebase 초기화
+   -------------------------------------------------------------------------
+   아래 firebaseConfig 값을 Firebase 콘솔 > 프로젝트 설정 > 웹 앱에서
+   복사해 붙여넣으세요. ADMIN_UID는 관리자 계정으로 1회 로그인 시도한 뒤
+   Authentication > Users 목록에서 UID를 복사해 넣으세요.
+   ========================================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDlQgZiCb1irEksq65k6CcVK4zf0oxi1_c",
+  authDomain: "vibe-coding-park.firebaseapp.com",
+  projectId: "vibe-coding-park",
+  storageBucket: "vibe-coding-park.firebasestorage.app",
+  messagingSenderId: "460353254866",
+  appId: "1:460353254866:web:edf03905c0a6eb6468040b"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// ⚠️ 관리자 UID (1회 로그인 시도 후 Authentication > Users에서 복사해 채우세요)
+const ADMIN_UID = "여기에_ADMIN_UID_입력";
+
+/* =========================================================================
+   [1] 데이터 접근 함수 (Firestore 'resources' 컬렉션)
+   자료 필드: title, category, subject, grade, description, tags(배열),
+              link, fileUrl, thumbnailUrl, createdAt, updatedAt, isPublic, isFeatured
+   ========================================================================= */
+
+// 자료 목록 조회. includePrivate=true면 비공개 자료도 포함 (관리자용)
+async function getResources({ includePrivate = false } = {}){
+  let query = includePrivate
+    ? db.collection("resources").orderBy("createdAt", "desc")
+    : db.collection("resources").where("isPublic", "==", true).orderBy("createdAt", "desc");
+  const snap = await query.get();
+  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+async function getResourceById(id){
+  const doc = await db.collection("resources").doc(id).get();
+  return doc.exists ? { id: doc.id, ...doc.data() } : null;
+}
+
+async function createResource(data){
+  const today = new Date().toISOString().slice(0,10);
+  const docRef = await db.collection("resources").add({ ...data, createdAt: today, updatedAt: today });
+  return docRef.id;
+}
+
+async function updateResource(id, data){
+  const today = new Date().toISOString().slice(0,10);
+  await db.collection("resources").doc(id).update({ ...data, updatedAt: today });
+}
+
+async function deleteResource(id){
+  await db.collection("resources").doc(id).delete();
+}
+
+/* =========================================================================
+   [2] 검색 / 필터 / 정렬 — 순수 함수 (데이터 출처와 무관)
+   ========================================================================= */
+function filterResources(list, { query, subject, grade, category, tag }){
+  const q = (query || "").trim().toLowerCase();
+  return list.filter(item=>{
+    const matchesQuery = !q ||
+      item.title.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q) ||
+      (item.subject && item.subject.toLowerCase().includes(q)) ||
+      item.tags.some(t=>t.toLowerCase().includes(q));
+    const matchesSubject = !subject || item.subject === subject;
+    const matchesGrade = !grade || item.grade === grade;
+    const matchesCategory = !category || item.category === category;
+    const matchesTag = !tag || item.tags.includes(tag);
+    return matchesQuery && matchesSubject && matchesGrade && matchesCategory && matchesTag;
+  });
+}
+function sortResources(list, sortBy){
+  const arr = [...list];
+  if(sortBy === "title") return arr.sort((a,b)=> a.title.localeCompare(b.title, "ko"));
+  if(sortBy === "featured") return arr.sort((a,b)=> (b.isFeatured - a.isFeatured) || (new Date(b.createdAt) - new Date(a.createdAt)));
+  return arr.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+/* =========================================================================
+   [3] 화면 렌더링
+   ========================================================================= */
+let isAdmin = false;
+let favorites = JSON.parse(localStorage.getItem("jarosil_favorites") || "[]");
+function saveFavorites(){ localStorage.setItem("jarosil_favorites", JSON.stringify(favorites)); }
+
+let toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove("show"), 1800);
+}
+
+function cardHtml(item){
+  const hasLink = item.link && item.link.trim() !== "";
+  const linkBtn = hasLink
+    ? `<a class="btn primary" href="${item.link}" target="_blank" rel="noopener" aria-label="${item.title} 열기">바로가기</a>`
+    : `<button class="btn disabled" disabled>준비 중</button>`;
+  const subjectBadge = item.subject ? `<span class="badge">${item.subject}</span>` : "";
+  const gradeBadge = item.grade ? `<span class="badge grade">${item.grade}</span>` : "";
+  const featuredBadge = item.isFeatured ? `<span class="badge featured">추천</span>` : "";
+  const privateBadge = item.isPublic === false ? `<span class="badge private">비공개</span>` : "";
+  const isFav = favorites.includes(item.id);
+
+  return `
+    <div class="card" data-id="${item.id}">
+      <div class="badges">
+        <span class="badge">${item.category}</span>${subjectBadge}${gradeBadge}${featuredBadge}${privateBadge}
+        <button class="star-btn ${isFav ? "active" : ""}" data-action="fav" data-id="${item.id}"
+          aria-label="즐겨찾기 ${isFav ? "해제" : "추가"}" aria-pressed="${isFav}">★</button>
+      </div>
+      <h3>${item.title}</h3>
+      <p class="desc">${item.description}</p>
+      <div class="tag-list">${item.tags.map(t=>`<span class="tag">#${t}</span>`).join("")}</div>
+      <div class="btn-row">
+        ${linkBtn}
+        ${isAdmin ? `<button class="btn ghost" data-action="edit" data-id="${item.id}" aria-label="수정">수정</button>` : ""}
+        ${isAdmin ? `<button class="btn ghost" data-action="toggle-public" data-id="${item.id}" aria-label="공개 상태 전환">${item.isPublic === false ? "공개 전환" : "비공개 전환"}</button>` : ""}
+        ${isAdmin ? `<button class="btn danger" data-action="delete" data-id="${item.id}" aria-label="삭제">삭제</button>` : ""}
+      </div>
+    </div>
+  `;
+}
+function renderResources(resources, gridId){
+  const grid = document.getElementById(gridId);
+  if(!resources.length){ grid.innerHTML = `<div class="no-result">표시할 자료가 없습니다.</div>`; return; }
+  grid.innerHTML = resources.map(cardHtml).join("");
+}
+
+async function fillFilterOptions(){
+  const all = await getResources({ includePrivate: isAdmin });
+  const subjSel = document.getElementById("filterSubject");
+  const gradeSel = document.getElementById("filterGrade");
+  const tagSel = document.getElementById("filterTag");
+  subjSel.innerHTML = '<option value="">과목 전체</option>';
+  gradeSel.innerHTML = '<option value="">학년 전체</option>';
+  tagSel.innerHTML = '<option value="">태그 전체</option>';
+  [...new Set(all.map(i=>i.subject).filter(Boolean))].forEach(s=>
+    subjSel.insertAdjacentHTML("beforeend", `<option value="${s}">${s}</option>`));
+  [...new Set(all.map(i=>i.grade).filter(Boolean))].forEach(g=>
+    gradeSel.insertAdjacentHTML("beforeend", `<option value="${g}">${g}</option>`));
+  [...new Set(all.flatMap(i=>i.tags))].forEach(t=>
+    tagSel.insertAdjacentHTML("beforeend", `<option value="${t}">${t}</option>`));
+}
+
+function currentCriteria(){
+  return {
+    query: document.getElementById("searchInput").value,
+    subject: document.getElementById("filterSubject").value,
+    grade: document.getElementById("filterGrade").value,
+    category: document.getElementById("filterCategory").value,
+    tag: document.getElementById("filterTag").value
+  };
+}
+
+async function renderAll(){
+  let all;
+  try{
+    all = await getResources({ includePrivate: isAdmin });
+  }catch(err){
+    console.error(err);
+    showToast("자료를 불러오지 못했습니다. firebaseConfig 설정을 확인하세요.");
+    all = [];
+  }
+  const sorted = sortResources(all, document.getElementById("sortSelect").value);
+  const filtered = filterResources(sorted, currentCriteria());
+
+  renderResources(sorted.filter(r=>r.isFeatured && r.isPublic !== false), "featuredGrid");
+  renderResources(sorted.filter(r=>r.isPublic !== false).slice(0,6), "recentGrid");
+  renderResources(filtered, "allGrid");
+  renderResources(sorted.filter(r=>favorites.includes(r.id)), "favGrid");
+}
+
+/* =========================================================================
+   [4] 화면 전환 / 필터 이벤트
+   ========================================================================= */
+document.querySelectorAll("#mainNav button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#mainNav button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+    document.getElementById("page-" + btn.dataset.page).classList.add("active");
+  });
+});
+["searchInput","filterSubject","filterGrade","filterCategory","filterTag","sortSelect"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", renderAll);
+  document.getElementById(id).addEventListener("change", renderAll);
+});
+
+/* =========================================================================
+   [5] 카드 버튼 클릭 처리 (즐겨찾기 / 수정 / 삭제 / 공개전환)
+   ========================================================================= */
+let editingId = null;
+const addModal = document.getElementById("addModal");
+
+function resetAddModalForCreate(){
+  editingId = null;
+  document.getElementById("addModalTitle").textContent = "새 자료 추가";
+  document.getElementById("addConfirmBtn").textContent = "추가하기";
+  ["f_title","f_subject","f_grade","f_desc","f_tags","f_link"].forEach(id=> document.getElementById(id).value = "");
+  document.getElementById("f_category").value = "수업자료";
+  document.getElementById("f_public").checked = true;
+  document.getElementById("f_featured").checked = false;
+}
+function openEditModal(item){
+  editingId = item.id;
+  document.getElementById("addModalTitle").textContent = "자료 수정";
+  document.getElementById("addConfirmBtn").textContent = "수정 완료";
+  document.getElementById("f_category").value = item.category;
+  document.getElementById("f_title").value = item.title;
+  document.getElementById("f_subject").value = item.subject || "";
+  document.getElementById("f_grade").value = item.grade || "";
+  document.getElementById("f_desc").value = item.description || "";
+  document.getElementById("f_tags").value = (item.tags || []).join(", ");
+  document.getElementById("f_link").value = item.link || "";
+  document.getElementById("f_public").checked = item.isPublic !== false;
+  document.getElementById("f_featured").checked = !!item.isFeatured;
+  addModal.classList.add("show");
+}
+
+document.addEventListener("click", async (e)=>{
+  const btn = e.target.closest("[data-action]");
+  if(!btn) return;
+  const action = btn.dataset.action;
+  const id = btn.dataset.id;
+
+  if(action === "fav"){
+    favorites = favorites.includes(id) ? favorites.filter(f=>f!==id) : [...favorites, id];
+    saveFavorites();
+    renderAll();
+    return;
+  }
+  if(!isAdmin) return; // 아래 액션은 전부 관리자 전용
+
+  if(action === "edit"){
+    const item = await getResourceById(id);
+    if(item) openEditModal(item);
+  }
+  if(action === "toggle-public"){
+    const item = await getResourceById(id);
+    if(!item) return;
+    await updateResource(id, { isPublic: item.isPublic === false ? true : false });
+    await fillFilterOptions();
+    renderAll();
+  }
+  if(action === "delete"){
+    const item = await getResourceById(id);
+    if(!item || !confirm(`"${item.title}" 자료를 삭제할까요?`)) return;
+    await deleteResource(id);
+    await fillFilterOptions();
+    renderAll();
+    showToast("삭제되었습니다.");
+  }
+});
+
+document.getElementById("addResourceBtn").addEventListener("click", ()=>{
+  resetAddModalForCreate();
+  addModal.classList.add("show");
+});
+document.getElementById("addCancelBtn").addEventListener("click", ()=>{
+  addModal.classList.remove("show");
+  resetAddModalForCreate();
+});
+document.getElementById("addConfirmBtn").addEventListener("click", async ()=>{
+  const title = document.getElementById("f_title").value.trim();
+  if(!title){ showToast("제목을 입력해주세요."); return; }
+  const data = {
+    title,
+    category: document.getElementById("f_category").value,
+    subject: document.getElementById("f_subject").value.trim(),
+    grade: document.getElementById("f_grade").value.trim(),
+    description: document.getElementById("f_desc").value.trim() || "설명이 없습니다.",
+    tags: document.getElementById("f_tags").value.split(",").map(t=>t.trim()).filter(Boolean),
+    link: document.getElementById("f_link").value.trim(),
+    fileUrl: "",
+    thumbnailUrl: "",
+    isPublic: document.getElementById("f_public").checked,
+    isFeatured: document.getElementById("f_featured").checked
+  };
+  try{
+    if(editingId !== null){
+      await updateResource(editingId, data);
+      showToast("자료가 수정되었습니다.");
+    }else{
+      await createResource(data);
+      showToast("자료가 추가되었습니다.");
+    }
+    addModal.classList.remove("show");
+    resetAddModalForCreate();
+    await fillFilterOptions();
+    renderAll();
+  }catch(err){
+    console.error(err);
+    showToast("저장 실패: Firestore 규칙/설정을 확인하세요.");
+  }
+});
+document.addEventListener("click", (e)=>{
+  if(e.target === addModal) addModal.classList.remove("show");
+});
+
+/* =========================================================================
+   [6] 관리자 로그인 (Firebase Authentication)
+   ========================================================================= */
+const loginModal = document.getElementById("loginModal");
+document.getElementById("adminLoginBtn").addEventListener("click", ()=>{
+  if(isAdmin){ auth.signOut(); return; }
+  loginModal.classList.add("show");
+  document.getElementById("loginEmail").value = "";
+  document.getElementById("loginPw").value = "";
+});
+document.getElementById("loginCancelBtn").addEventListener("click", ()=> loginModal.classList.remove("show"));
+document.getElementById("loginConfirmBtn").addEventListener("click", async ()=>{
+  const email = document.getElementById("loginEmail").value.trim();
+  const pw = document.getElementById("loginPw").value;
+  try{
+    await auth.signInWithEmailAndPassword(email, pw);
+    loginModal.classList.remove("show");
+  }catch(err){
+    console.error(err);
+    showToast("로그인 실패: 이메일/비밀번호를 확인하세요.");
+  }
+});
+document.addEventListener("click", (e)=>{
+  if(e.target === loginModal) loginModal.classList.remove("show");
+});
+
+auth.onAuthStateChanged(async (user)=>{
+  isAdmin = !!user && user.uid === ADMIN_UID;
+  document.querySelectorAll(".admin-only").forEach(el=> el.style.display = isAdmin ? "" : "none");
+  document.getElementById("adminLoginBtn").textContent = isAdmin ? "로그아웃" : "관리자 로그인";
+  if(user && !isAdmin){
+    showToast("이 계정은 관리자 권한이 없습니다. ADMIN_UID 설정을 확인하세요.");
+  }
+  await fillFilterOptions();
+  renderAll();
+});
+
+/* ---- 초기화 (로그인 상태 확인 전에도 화면은 우선 그려짐) ---- */
+(async function init(){
+  await fillFilterOptions();
+  await renderAll();
+})();
+</script>
+</body>
+</html>
