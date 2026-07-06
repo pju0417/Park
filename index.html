@@ -522,7 +522,7 @@ document.addEventListener("click", (e)=>{
 
 auth.onAuthStateChanged(async (user)=>{
   isAdmin = !!user && user.uid === ADMIN_UID;
-  document.querySelectorAll(".admin-only").forEach(el=> el.style.display = isAdmin ? "" : "none");
+  document.querySelectorAll(".admin-only").forEach(el=> el.style.display = isAdmin ? "inline-block" : "none");
   document.getElementById("adminLoginBtn").textContent = isAdmin ? "로그아웃" : "관리자 로그인";
   if(user && !isAdmin){
     showToast("이 계정은 관리자 권한이 없습니다. ADMIN_UID 설정을 확인하세요.");
